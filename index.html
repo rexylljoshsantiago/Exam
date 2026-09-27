@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quiz Hub — Study Reviewer</title>
+<style>
+  :root{
+    --ink:#1c2430;
+    --paper:#f7f5f0;
+    --card:#ffffff;
+    --line:#d8d3c6;
+    --accent:#2e5f4e;
+    --accent-soft:#e4efe9;
+    --wrong:#a3372c;
+    --wrong-soft:#f6e6e3;
+    --muted:#6b6558;
+    --sidebar:#efece3;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#eae6da; --paper:#14181a; --card:#1c2225; --line:#333b3a;
+      --accent:#7fbfa2; --accent-soft:#20302a; --wrong:#e18b7f; --wrong-soft:#3a2320; --muted:#9a9587; --sidebar:#1a1e20;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#eae6da; --paper:#14181a; --card:#1c2225; --line:#333b3a;
+    --accent:#7fbfa2; --accent-soft:#20302a; --wrong:#e18b7f; --wrong-soft:#3a2320; --muted:#9a9587; --sidebar:#1a1e20;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    line-height:1.5;
+  }
+  .shell{display:flex;min-height:100%;}
+
+  /* Sidebar */
+  .sidebar{
+    width:230px;flex:0 0 230px;background:var(--sidebar);border-right:1px solid var(--line);
+    padding:1.4rem 1rem;padding-top:calc(1.4rem + env(safe-area-inset-top,0px));
+  }
+  .sidebar h2{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 .9rem;font-weight:600;}
+  .subject-btn{
+    display:block;width:100%;text-align:left;background:transparent;border:1px solid transparent;
+    color:var(--ink);font-family:inherit;font-size:.95rem;padding:.6rem .7rem;border-radius:5px;
+    cursor:pointer;margin-bottom:.4rem;
+  }
+  .subject-btn:hover{background:var(--accent-soft);}
+  .subject-btn.active{background:var(--accent);color:var(--paper);}
+  .subject-progress{font-size:.72rem;color:var(--muted);margin-top:.15rem;padding-left:.7rem;}
+  .subject-btn.active + .subject-progress{color:var(--paper);opacity:.75;}
+
+  /* Mobile: sidebar becomes a horizontal tab row */
+  @media (max-width: 720px){
+    .shell{flex-direction:column;}
+    .sidebar{
+      width:100%;flex:0 0 auto;display:flex;gap:.5rem;overflow-x:auto;
+      border-right:none;border-bottom:1px solid var(--line);padding:1rem;
+    }
+    .sidebar h2{display:none;}
+    .subject-btn{white-space:nowrap;margin-bottom:0;width:auto;}
+    .subject-progress{display:none;}
+  }
+
+  main{flex:1;min-width:0;}
+  .wrap{max-width:760px;margin:0 auto;padding:2.2rem 1.25rem 4rem;}
+  header.top{margin-bottom:1.6rem;}
+  h1{font-size:1.5rem;margin:0 0 .2rem;font-weight:700;letter-spacing:.2px;}
+  .sub{color:var(--muted);font-size:.95rem;margin:0 0 1.1rem;}
+  .meta{display:flex;gap:1rem;flex-wrap:wrap;font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:.6rem 0;margin-bottom:1.6rem;}
+
+  .go{
+    display:inline-block;margin-top:.4rem;background:var(--accent);color:var(--paper);
+    border:none;padding:.75rem 1.4rem;font-size:1rem;font-family:inherit;border-radius:3px;cursor:pointer;
+  }
+  .go:hover{opacity:.9;}
+  .go.outline{background:transparent;color:var(--ink);border:1px solid var(--ink);}
+  .go.outline:hover{background:var(--accent-soft);opacity:1;}
+  .start-actions{display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;}
+  .start-actions .go{margin-top:0;}
+  .shuffled-tag{font-size:.82rem;color:var(--muted);margin-top:.7rem;margin-bottom:0;}
+
+  .progress-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;font-size:.85rem;color:var(--muted);}
+  .barwrap{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-bottom:1.6rem;}
+  .bar{height:100%;background:var(--accent);width:0%;transition:width .25s ease;}
+
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:6px;
+    padding:1.4rem 1.4rem 1.2rem;margin-bottom:1.1rem;
+  }
+  .qnum{font-size:.78rem;letter-spacing:.03em;color:var(--muted);margin-bottom:.35rem;}
+  .qtext{font-size:1.08rem;margin:0 0 1rem;font-weight:600;}
+  .opt{
+    display:flex;gap:.65rem;align-items:flex-start;padding:.55rem .6rem;border-radius:4px;
+    cursor:pointer;border:1px solid transparent;
+  }
+  .opt:hover{background:var(--accent-soft);}
+  .opt input{margin-top:.2rem;accent-color:var(--accent);flex:0 0 auto;}
+  .opt span{font-size:.98rem;}
+  .opt.locked{cursor:default;}
+  .opt.correct{background:var(--accent-soft);border-color:var(--accent);}
+  .opt.incorrect{background:var(--wrong-soft);border-color:var(--wrong);}
+  .opt.selected-draft{background:var(--accent-soft);border-color:var(--accent);}
+  .opt.locked:hover{background:inherit;}
+
+  .navrow{display:flex;justify-content:space-between;gap:.75rem;margin-top:1.3rem;}
+  button.nav{
+    background:transparent;border:1px solid var(--ink);color:var(--ink);
+    padding:.6rem 1.1rem;font-family:inherit;font-size:.95rem;border-radius:3px;cursor:pointer;
+  }
+  button.nav.primary{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  button.nav:disabled{opacity:.35;cursor:not-allowed;}
+
+  .score-big{font-size:3rem;font-weight:700;margin:.6rem 0 0;}
+  .score-label{color:var(--muted);font-size:1rem;margin-bottom:1.6rem;}
+  .review-item{text-align:left;}
+  .review-item .qtext{font-weight:600;}
+  .tag-correct{color:var(--accent);font-weight:600;}
+  .tag-wrong{color:var(--wrong);font-weight:600;}
+  .restart{
+    display:inline-block;margin-top:1rem;background:var(--accent);color:var(--paper);
+    border:none;padding:.7rem 1.3rem;font-family:inherit;font-size:.95rem;border-radius:3px;cursor:pointer;
+  }
+  .restart.outline{background:transparent;color:var(--ink);border:1px solid var(--ink);}
+  .restart.outline:hover{background:var(--accent-soft);}
+  .result-actions{display:flex;gap:.7rem;flex-wrap:wrap;justify-content:center;}
+  .result-actions .restart{margin-top:0;}
+  footer{text-align:center;color:var(--muted);font-size:.8rem;margin-top:2.5rem;}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main>
+    <div class="wrap" id="app"></div>
+  </main>
+</div>
+
+<script>
+
+const SUBJECTS = {
+  siaa: {
+    id: 'siaa',
+    title: 'ITP09 — System Integration and Architecture',
+    subtitle: 'Quiz: Chapter 3 (Data and Cloud Integration) & Chapter 4 (Enterprise Integration and Security)',
+    navLabel: 'System Integration and Architecture',
+    intro: 'This quiz covers every major topic from both chapters: data integration strategies, data transformation, data quality, data synchronization, cloud integration patterns, cloud integration security pillars, enterprise integration frameworks and approaches, authentication and authorization, secure data transmission, API security, integration governance best practices, and matching real-world examples to their correct terms.',
+    footer: 'Questions are drawn directly from the CHAPTER 3 and CHAPTER 4 course slides.',
+    questions: [{"q":"According to Chapter 3, what does ETL stand for?","o":["Extract, Transform, Load","Evaluate, Transfer, Load","Extract, Translate, Load","Export, Transform, Link"],"a":0,"type":"mc"},{"q":"Which data integration strategy is defined as \"Data is copied from one database to another to keep multiple systems updated\"?","o":["API Integration","Data Replication","Data Virtualization","ETL"],"a":1,"type":"mc"},{"q":"Which data integration strategy allows \"Applications to exchange data directly through APIs\"?","o":["API Integration","Manual Data Integration","Data Virtualization","Data Replication"],"a":0,"type":"mc"},{"q":"Data Virtualization is defined as:","o":["Copying data from one database to another","Users accessing data from different sources through one interface without physically transferring it","Users manually transferring data between systems","Cleaning and standardizing data before loading"],"a":1,"type":"mc"},{"q":"Manual Data Integration is described as:","o":["Users manually transferring or combining data between systems","Data flowing automatically between APIs","Data virtualized across dashboards","Data replicated in real time"],"a":0,"type":"mc"},{"q":"What does Data Transformation involve, according to Chapter 3?","o":["Deleting duplicate records only","Converting raw data from multiple heterogeneous sources into a clean, standardized, analysis-ready format","Encrypting data before storage","Backing up databases regularly"],"a":1,"type":"mc"},{"q":"Data transformations can be divided into which two categories?","o":["Basic and Advanced","Simple and Complex","Manual and Automatic","Internal and External"],"a":1,"type":"mc"},{"q":"Simple Data Transformations involve tasks like:","o":["Data modeling, mapping, and validation","Cleansing, standardization, aggregation, and filtering","Machine learning and advanced analytics","Migration and enrichment"],"a":1,"type":"mc"},{"q":"Complex Data Transformations require techniques such as:","o":["Basic cleansing only","Data modeling, mapping, and validation","Simple filtering","Manual export/import"],"a":1,"type":"mc"},{"q":"Which of the following is NOT listed as a reason operational data must be transformed for a unified data warehouse?","o":["Inconsistencies are removed","Formats are standardized","Storage hardware costs are reduced","Errors and duplicates are eliminated"],"a":2,"type":"mc"},{"q":"Data quality refers to:","o":["How large a dataset is","How relevant and reliable data is for its intended purpose","How quickly data can be transferred","How many systems store the data"],"a":1,"type":"mc"},{"q":"True data quality also depends on preserving:","o":["Network bandwidth","Business semantics","Server storage capacity","Software licensing terms"],"a":1,"type":"mc"},{"q":"Which data quality dimension means \"data correctly reflects the real-world entity or event\"?","o":["Completeness","Accuracy","Consistency","Context"],"a":1,"type":"mc"},{"q":"Which data quality dimension \"ensures all required data are present and available\"?","o":["Completeness","Uniqueness","Punctuality","Context"],"a":0,"type":"mc"},{"q":"Which data quality dimension \"provides the business meaning, metadata, or hierarchy needed to make sense of data\"?","o":["Consistency","Context","Accuracy","Punctuality"],"a":1,"type":"mc"},{"q":"Which data quality dimension means \"data is uniform across systems and sources\"?","o":["Consistency","Uniqueness","Completeness","Context"],"a":0,"type":"mc"},{"q":"Which data quality dimension \"assesses whether data is up to date and available when required\"?","o":["Punctuality","Accuracy","Uniqueness","Consistency"],"a":0,"type":"mc"},{"q":"Which data quality dimension \"ensures data is free from duplicates or redundant records\"?","o":["Uniqueness","Consistency","Completeness","Context"],"a":0,"type":"mc"},{"q":"Data Synchronization is defined as:","o":["Deleting redundant systems","The process of maintaining consistent and up-to-date data across multiple systems by detecting changes and applying them where needed","Encrypting data during storage","Backing up files to the cloud"],"a":1,"type":"mc"},{"q":"In One-Way Synchronization:","o":["Data flows in a single direction from a source to a destination","Both systems update each other","More than two systems update simultaneously","Data only moves during scheduled batches"],"a":0,"type":"mc"},{"q":"Two-Way Synchronization fits best for:","o":["Reporting tools that never push data back","Tools that share the same data and need to stay in sync, like a CRM and a support app","Companies using many apps across departments","Systems requiring read-only access"],"a":1,"type":"mc"},{"q":"Multi-Way Synchronization involves:","o":["Only two systems","Syncing across more than two systems","Manual, one-time data transfer","Only real-time updates"],"a":1,"type":"mc"},{"q":"Hybrid Synchronization is described as:","o":["A mix where some data moves both ways, while other data might only go one way or stay read-only","Data that always moves in real time","Data that always moves on a fixed schedule","Data that never synchronizes"],"a":0,"type":"mc"},{"q":"Real-Time Data Synchronization means:","o":["Updates happen the moment data changes","Updates happen once a day","Updates happen only when manually triggered","Updates happen once a week"],"a":0,"type":"mc"},{"q":"Batch Data Synchronization means:","o":["Updates happen instantly","Updates happen in bulk, usually on a schedule","Updates happen continuously in real time","Updates happen only for security patches"],"a":1,"type":"mc"},{"q":"An Enterprise Integration Framework is defined as:","o":["A single application that replaces all others","A set of tools, rules, and reusable components that helps different applications within an organization communicate and share data","A cloud storage service","A type of database replication"],"a":1,"type":"mc"},{"q":"In the Enterprise Integration Framework example, once the cashier confirms a student's payment:","o":["The library system revokes access","The enrollment system updates the student's status and the learning management system grants access to enrolled subjects","The payment is refunded automatically","The student must manually update enrollment records"],"a":1,"type":"mc"},{"q":"Which Enterprise Integration Framework function \"Connects separate applications so they can exchange information\"?","o":["Message Routing","System Connection","Process Coordination","Error Handling"],"a":1,"type":"mc"},{"q":"Which Enterprise Integration Framework function \"Converts data into a format another system understands\"?","o":["Data Transformation","Message Routing","System Connection","Error Handling"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration Framework function \"Sends information to the correct system\"?","o":["Process Coordination","Message Routing","Error Handling","System Connection"],"a":1,"type":"mc"},{"q":"Which Enterprise Integration Framework function \"Organizes tasks that involve several systems\"?","o":["Process Coordination","Message Routing","Data Transformation","System Connection"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration Framework function \"Manages failed transfers and helps prevent lost information\"?","o":["Error Handling","Process Coordination","Message Routing","System Connection"],"a":0,"type":"mc"},{"q":"Apache Camel is described as:","o":["A database replication tool","An integration framework that helps developers connect applications and define how data should move between them","An authentication protocol","A cloud storage provider"],"a":1,"type":"mc"},{"q":"Which Enterprise Integration approach \"Connects two systems directly to exchange data\"?","o":["Enterprise Service Bus (ESB)","Point-to-Point Integration","Service-Oriented Architecture (SOA)","Event-Driven Integration"],"a":1,"type":"mc"},{"q":"Which Enterprise Integration approach \"Uses a central communication layer to route messages and convert data between several systems\"?","o":["Point-to-Point Integration","Enterprise Service Bus (ESB)","API-Based Integration","Data Integration"],"a":1,"type":"mc"},{"q":"Which Enterprise Integration approach \"Organizes business functions as reusable services that different applications can access\"?","o":["Service-Oriented Architecture (SOA)","API-Based Integration","Event-Driven Integration","Point-to-Point Integration"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration approach \"Allows applications to request or submit information through defined interfaces\"?","o":["Event-Driven Integration","API-Based Integration","Enterprise Service Bus (ESB)","Data Integration"],"a":1,"type":"mc"},{"q":"Which Enterprise Integration approach \"Allows systems to react automatically when an event occurs\"?","o":["Event-Driven Integration","API-Based Integration","Point-to-Point Integration","Data Integration"],"a":0,"type":"mc"},{"q":"Authentication is defined as:","o":["Determining which information and actions a user is allowed to access","Verifying a user's identity before allowing access to a system","Encrypting data during transmission","Managing failed data transfers"],"a":1,"type":"mc"},{"q":"Authorization is defined as:","o":["Verifying a user's identity","Determining which information and actions a user is allowed to access","Encrypting stored data","Routing messages to the correct system"],"a":1,"type":"mc"},{"q":"Which of the following are listed as common Authentication methods?","o":["Roles and permissions","Passwords, one-time passwords (OTP), and biometrics such as fingerprints","Encryption and rate limiting","Message routing and error handling"],"a":1,"type":"mc"},{"q":"In the SSO (Single Sign-On) example, students:","o":["Sign in separately to each system","Sign in once to access both the student portal and learning management system","Cannot access the learning management system","Must manually enter permissions for each system"],"a":1,"type":"mc"},{"q":"Secure Data Transmission is defined as:","o":["Storing data in one central database","Protecting information as it travels between devices or systems","Verifying student enrollment","Managing failed transfers"],"a":1,"type":"mc"},{"q":"Which of the following describes \"Encryption\" in Secure Data Transmission?","o":["Detects whether data was changed during transmission","Scrambles data so only the intended recipient can read it","Verifies the identity of the connecting system","Limits the number of requests made within a period"],"a":1,"type":"mc"},{"q":"In the HTTPS example, when a student submits a password through a university portal:","o":["The password is sent in plain text","The connection encrypts the password during transmission","The password bypasses authentication","The connection is rejected"],"a":1,"type":"mc"},{"q":"API Security means:","o":["Storing APIs in a shared database","Protecting the connections that allow applications to exchange data","Converting data formats between systems","Routing messages to the correct system"],"a":1,"type":"mc"},{"q":"Which API Security measure \"Limits how many requests can be made within a period to reduce abuse and overloading\"?","o":["Input Validation","Rate Limiting","HTTPS","Authorization"],"a":1,"type":"mc"},{"q":"Which API Security measure \"Checks incoming data and rejects invalid or potentially harmful requests\"?","o":["Input Validation","Rate Limiting","Authentication","HTTPS"],"a":0,"type":"mc"},{"q":"Integration Governance is defined as:","o":["A tool for encrypting data","The set of rules, responsibilities, and standards that guides how an organization connects and manages its systems","A method of data replication","A type of authentication protocol"],"a":1,"type":"mc"},{"q":"Which of the following is listed as an Integration Governance Best Practice?","o":["Avoid documenting system connections","Follow common standards by using consistent data formats and naming conventions","Skip testing before making changes","Ignore monitoring of failures"],"a":1,"type":"mc"},{"q":"Which cloud integration pattern is described as: \"This synchronous operation is a protocol used by programs to request services from other programs located in disparate networks, without having to understand the complexity of the network itself\"?","o":["Asynchronous messaging","Remote Procedure Call (RPC)","Shared databases","File transfers"],"a":1,"type":"mc"},{"q":"Asynchronous messaging is ideal when:","o":["The source is tied directly to the destination","The source is not tied to the destination, so the sender can continue even if a receiver is unable to accept a message","Data must be transferred manually","Only one application needs to access data"],"a":1,"type":"mc"},{"q":"Shared databases as an integration pattern is best used when:","o":["Multiple applications need to work together and share information","Only asynchronous messaging is required","Data must be transferred in bulk files","A single application works in isolation"],"a":0,"type":"mc"},{"q":"File transfers as an integration pattern support:","o":["Real-time messaging only","Exporting, importing, and transforming files between systems and services","Direct API calls only","Central database replication"],"a":1,"type":"mc"},{"q":"Which of the following is listed as a benefit of Cloud Integration Solutions?","o":["Increased flexibility and scalability","Increased operational costs","Slower time-to-market","Reduced customer service quality"],"a":0,"type":"mc"},{"q":"Which Security in Cloud Integration pillar focuses on \"Securing integration entry points, data routing, and payload delivery\"?","o":["Identity & Access Management (IAM)","API & Gateway Security","Data Protection","Network & Transport"],"a":1,"type":"mc"},{"q":"Which Security in Cloud Integration pillar focuses on \"Verifying service identities and preventing privilege escalation\"?","o":["API & Gateway Security","Identity & Access Management (IAM)","Governance & Posture","Network & Transport"],"a":1,"type":"mc"},{"q":"Which Security in Cloud Integration pillar focuses on \"Preventing data exposure during storage and movement\"?","o":["Data Protection","Network & Transport","API & Gateway Security","Governance & Posture"],"a":0,"type":"mc"},{"q":"Which Security in Cloud Integration pillar focuses on \"Isolating integration traffic from the public internet\"?","o":["Network & Transport","Data Protection","Identity & Access Management (IAM)","Governance & Posture"],"a":0,"type":"mc"},{"q":"Which Security in Cloud Integration pillar focuses on \"Continuous compliance, anomaly detection, and posture evaluation\"?","o":["Governance & Posture","API & Gateway Security","Data Protection","Network & Transport"],"a":0,"type":"mc"},{"q":"Which Integration Governance Best Practice is described as \"Use consistent data formats and naming conventions so systems understand each other\"?","o":["Follow common standards","Protect shared data","Document connections","Monitor and handle failures"],"a":0,"type":"mc"},{"q":"Which Integration Governance Best Practice is described as \"Identify who maintains each integration and resolves problems\"?","o":["Test before making changes","Assign clear responsibilities","Document connections","Follow common standards"],"a":1,"type":"mc"},{"q":"Which Integration Governance Best Practice is described as \"Apply encryption and appropriate access permissions\"?","o":["Protect shared data","Monitor and handle failures","Assign clear responsibilities","Test before making changes"],"a":0,"type":"mc"},{"q":"Which Integration Governance Best Practice is described as \"Record how systems exchange data and what information is shared\"?","o":["Document connections","Follow common standards","Protect shared data","Monitor and handle failures"],"a":0,"type":"mc"},{"q":"Which Integration Governance Best Practice is described as \"Check that updates will not disrupt connected systems\"?","o":["Monitor and handle failures","Test before making changes","Assign clear responsibilities","Document connections"],"a":1,"type":"mc"},{"q":"Which Integration Governance Best Practice is described as \"Track errors, notify responsible staff, and retry failed transfers when appropriate\"?","o":["Monitor and handle failures","Test before making changes","Protect shared data","Follow common standards"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration approach \"Collects and combines data from different sources for shared use or reporting\"?","o":["Data Integration","API-Based Integration","Event-Driven Integration","Enterprise Service Bus (ESB)"],"a":0,"type":"mc"},{"q":"Which of the following are listed as common Authorization methods?","o":["Passwords and biometrics","Roles and permissions, such as Student, Instructor, and Administrator, with different access privileges","Encryption and HTTPS","Rate limiting and input validation"],"a":1,"type":"mc"},{"q":"Which of the following describes \"Integrity Checking\" in Secure Data Transmission?","o":["Scrambles data so only the intended recipient can read it","Detects whether data was changed during transmission","Verifies the identity of the system you are connecting to","Limits how many requests can be made within a period"],"a":1,"type":"mc"},{"q":"According to Chapter 4, what is the difference between authentication and authorization?","o":["Authentication checks permissions; authorization verifies identity","Authentication verifies your identity; authorization checks your permissions","They are the same process","Authentication only applies to APIs, authorization only applies to databases"],"a":1,"type":"mc"},{"q":"Which term does this example describe? \"Combining student records from enrollment, attendance, and grading systems into a data warehouse.\"","o":["ETL","Data Replication","API Integration","Manual Data Integration"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"Copying sales data from branch databases to the company’s central database.\"","o":["Data Replication","ETL","Data Virtualization","Manual Data Integration"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"A hospital system retrieving patient payment information from an online payment service.\"","o":["API Integration","Data Virtualization","Data Replication","Manual Data Integration"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"A dashboard displaying information from separate finance, inventory, and employee databases.\"","o":["Data Virtualization","API Integration","Data Replication","ETL"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"Exporting records from one system as an Excel file and importing them into another.\"","o":["Manual Data Integration","API Integration","Data Virtualization","Data Replication"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"An online store sends daily order data to a business dashboard. The dashboard never pushes anything back.\"","o":["One-Way Synchronization","Two-Way Synchronization","Multi-Way Synchronization","Hybrid Synchronization"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"Update a customer’s email in Salesforce, and it updates in Zendesk too.\"","o":["Two-Way Synchronization","One-Way Synchronization","Multi-Way Synchronization","Hybrid Synchronization"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"Marketing updates a lead in HubSpot. Sales sees it in Salesforce. Finance sees it in NetSuite.\"","o":["Multi-Way Synchronization","Two-Way Synchronization","One-Way Synchronization","Hybrid Synchronization"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"Contacts can be updated in either app, but order history only flows one way from the ERP system to the CRM.\"","o":["Hybrid Synchronization","Two-Way Synchronization","One-Way Synchronization","Multi-Way Synchronization"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"A customer updates their payment info on your website. The billing system gets the change instantly, so support doesn’t miss a beat.\"","o":["Real-Time Data Synchronization","Batch Data Synchronization","One-Way Synchronization","Two-Way Synchronization"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"Product reviews from a website are synced to an analytics tool every midnight.\"","o":["Batch Data Synchronization","Real-Time Data Synchronization","One-Way Synchronization","Multi-Way Synchronization"],"a":0,"type":"mc"},{"q":"Which cloud integration pattern does this example describe? \"MS Dynamics to Salesforce\" — ensuring data with different file types can be shared across systems and applications.","o":["File transfers","Shared databases","Remote Procedure Call (RPC)","Asynchronous messaging"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"A university connects its enrollment, payment, and learning management systems. Once the cashier confirms a student’s payment, the enrollment system updates the student’s status, and the learning management system grants access to enrolled subjects.\"","o":["Enterprise Integration Framework","Apache Camel","Point-to-Point Integration","Enterprise Service Bus (ESB)"],"a":0,"type":"mc"},{"q":"Which term does this example describe? \"An online store uses this framework to send a confirmed order to the inventory system, convert its details into the shipping system’s required format, and route delivery information to the notification system.\"","o":["Apache Camel","Enterprise Service Bus (ESB)","Point-to-Point Integration","Event-Driven Integration"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration approach does this example describe? \"The payment system directly updates the enrollment system when a student pays.\"","o":["Point-to-Point Integration","Enterprise Service Bus (ESB)","Service-Oriented Architecture (SOA)","API-Based Integration"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration approach does this example describe? \"Enrollment, accounting, and library systems exchange student information through this integration layer.\"","o":["Enterprise Service Bus (ESB)","Point-to-Point Integration","Service-Oriented Architecture (SOA)","Data Integration"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration approach does this example describe? \"A ‘Verify Student’ service is used by the library, enrollment, and scholarship systems.\"","o":["Service-Oriented Architecture (SOA)","API-Based Integration","Event-Driven Integration","Enterprise Service Bus (ESB)"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration approach does this example describe? \"A student portal requests outstanding balances from the accounting system through an API.\"","o":["API-Based Integration","Event-Driven Integration","Point-to-Point Integration","Enterprise Service Bus (ESB)"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration approach does this example describe? \"A ‘Student Enrolled’ event triggers the creation of an LMS account and a welcome notification.\"","o":["Event-Driven Integration","API-Based Integration","Point-to-Point Integration","Data Integration"],"a":0,"type":"mc"},{"q":"Which Enterprise Integration approach does this example describe? \"A university combines enrollment, attendance, and grade records into a reporting database.\"","o":["Data Integration","API-Based Integration","Event-Driven Integration","Enterprise Service Bus (ESB)"],"a":0,"type":"mc"}]
+  },
+  itelective: {
+    id: 'itelective',
+    title: 'IT Elective — Hardware, OS & Troubleshooting',
+    subtitle: 'Quiz: Motherboard & Components, Storage, Operating Systems, Troubleshooting',
+    navLabel: 'IT Elective',
+    intro: 'This quiz covers motherboard components and sockets, GPUs and cooling, memory and storage technologies (HDD, SSD, SATA, NVMe), types of operating systems, the CMOS battery and BIOS, and common hardware troubleshooting steps.',
+    footer: 'Questions are drawn directly from the IT Elective reviewer.',
+    questions: [{"type":"tf","q":"The BIOS firmware is stored on a chip on the motherboard.","o":["True","False"],"a":0},{"type":"tf","q":"All motherboards come with the same number of RAM slots.","o":["True","False"],"a":1},{"type":"tf","q":"The chipset manages communication between CPU, memory, and peripherals.","o":["True","False"],"a":0},{"type":"tf","q":"The power supply unit (PSU) is mounted directly on the motherboard.","o":["True","False"],"a":1},{"type":"tf","q":"The CPU is installed into the RAM slot on the motherboard.","o":["True","False"],"a":1},{"type":"tf","q":"The motherboard form factor defines its size and layout.","o":["True","False"],"a":0},{"type":"tf","q":"The motherboard is also called the main circuit board of the computer.","o":["True","False"],"a":0},{"type":"mc","q":"What is the portion on the motherboard that holds the CPU?","o":["CPU Socket","RAM Slot","Chipset","Expansion Slot"],"a":0},{"type":"mc","q":"Which specific Intel CPU series uses the LGA 1700 socket?","o":["Intel 12th/13th/14th Gen","Intel 6th/7th Gen","Intel 8th/9th Gen","AMD Ryzen 5000 Series"],"a":0},{"type":"mc","q":"AMD CPUs typically use which socket type where the pins are located on the CPU itself?","o":["PGA (Pin Grid Array)","LGA (Land Grid Array)","BGA (Ball Grid Array)","ZIF (Zero Insertion Force)"],"a":0},{"type":"tf","q":"PCIe slots are used for expansion cards like GPUs.","o":["True","False"],"a":0},{"type":"mc","q":"What older standard was designed specifically for video cards, providing a faster bus speed than PCI, and was considered a port, not a bus?","o":["AGP (Accelerated Graphics Port)","PCIe","PCI","ISA"],"a":0},{"type":"mc","q":"What is the specialized electronic circuit designed to rapidly process and manipulate graphics and image data?","o":["GPU","CPU","Northbridge","ALU"],"a":0},{"type":"mc","q":"Which GPU function handles high-definition and 4K/8K video decoding and encoding efficiently?","o":["Video Playback & Editing","Data Encryption","Network Routing","Memory Management"],"a":0},{"type":"mc","q":"What cooling method is described as the \"most common and cost-effective,\" using fans and heatsinks?","o":["Air Cooling","Liquid Cooling","Passive Cooling","Immersion Cooling"],"a":0},{"type":"mc","q":"Which common type of main memory in computers needs to be refreshed thousands of times per second?","o":["DRAM","SRAM","ROM","Cache Memory"],"a":0},{"type":"mc","q":"What is the slot where you insert the memory module or memory card?","o":["Memory (RAM) Slot","CPU Socket","PCIe Slot","SATA Port"],"a":0},{"type":"mc","q":"Which traditional storage device uses spinning magnetic disks and a mechanical read/write head?","o":["HDD","SSD","NVMe Drive","Optical Drive"],"a":0},{"type":"mc","q":"What is the newer interface described as having a faster transfer rate than ATA and allowing only one device to be attached?","o":["SATA","IDE/ATA","SCSI","USB"],"a":0},{"type":"tf","q":"SATA ports are used to connect USB devices.","o":["True","False"],"a":1},{"type":"mc","q":"What storage protocol is designed specifically for SSDs to maximize speed by using PCIe instead of SATA?","o":["NVMe","SATA","IDE","SCSI"],"a":0},{"type":"mc","q":"NVMe M.2 drives are ideal for tasks requiring very high performance, such as gaming, video editing, and what other activity?","o":["3D Rendering","Word Processing","Email Management","Web Browsing"],"a":0},{"type":"mc","q":"Which type of legacy controller connects devices such as hard drives, CD drives, and DVD drives using an IDE cable?","o":["IDE Controller","SATA Controller","RAID Controller","NVMe Controller"],"a":0},{"type":"mc","q":"Which modern storage device uses flash memory, has no moving parts, and provides faster boot times?","o":["SSD","HDD","Optical Drive","Floppy Disk"],"a":0},{"type":"mc","q":"What does ATX stand for?","o":["Advanced Technology eXtended","Automated Technology Extension","Advanced Transfer Exchange","Application Technology Exchange"],"a":0},{"type":"mc","q":"Which OS allows multiple users/programs by time-slicing the CPU?","o":["Time-Sharing OS","Batch OS","Embedded OS","Real-Time OS"],"a":0},{"type":"mc","q":"Which OS is designed to run on special-purpose devices like ATMs or cars?","o":["Embedded OS","Distributed OS","Mobile OS","Batch OS"],"a":0},{"type":"mc","q":"Which of the following is NOT a type of Operating System?","o":["GPU OS","Batch OS","Real-Time OS","Distributed OS"],"a":0},{"type":"mc","q":"Which OS is designed for handheld devices like smartphones, optimized for wireless connectivity, touchscreen, and battery management?","o":["Mobile OS","Embedded OS","Distributed OS","Time-Sharing OS"],"a":0},{"type":"mc","q":"Which OS collects jobs and processes them sequentially, often without user interaction?","o":["Batch OS","Time-Sharing OS","Real-Time OS","Distributed OS"],"a":0},{"type":"mc","q":"A hospital uses an OS that coordinates several computers on a network so they appear as one system. Which OS is this?","o":["Distributed OS","Batch OS","Embedded OS","Mobile OS"],"a":0},{"type":"mc","q":"An aircraft's autopilot system runs on an OS that must respond within strict time limits. Which OS is this?","o":["Hard Real-Time OS","Soft Real-Time OS","Batch OS","Time-Sharing OS"],"a":0},{"type":"mc","q":"Which is NOT an example of a hard real-time OS?","o":["Windows CE","VxWorks","QNX","RTLinux"],"a":0},{"type":"mc","q":"What type of OS allows a user to run multiple applications simultaneously?","o":["Multitasking OS","Batch OS","Single-tasking OS","Embedded OS"],"a":0},{"type":"mc","q":"What is the primary function of an operating system's kernel?","o":["Manage system resources and hardware-software communication","Only run antivirus scans","Only manage the GPU","Only handle user login"],"a":0},{"type":"mc","q":"During troubleshooting, a user removes the CMOS battery for 10 minutes to restore factory defaults. What process is this?","o":["CMOS Reset","BIOS Update","Factory Reset","Hard Reset"],"a":0},{"type":"mc","q":"What is the main function of the CMOS battery?","o":["Maintain time, date, and configuration settings","Store the operating system","Power the CPU","Store user files"],"a":0},{"type":"mc","q":"What typically happens if the CMOS battery dies?","o":["BIOS settings reset to default and clock/date reset","The computer permanently stops working","All data on the hard drive is erased","The CPU overheats"],"a":0},{"type":"tf","q":"The CMOS battery keeps the system clock running when the computer is off.","o":["True","False"],"a":0},{"type":"mc","q":"What is the term for a program that runs in the background without user interaction?","o":["Daemon or Service","Kernel","Driver","Shell"],"a":0},{"type":"mc","q":"When troubleshooting RAM issues, which method is recommended?","o":["Try each stick individually","Reinstall the OS","Replace the PSU","Update the BIOS only"],"a":0},{"type":"mc","q":"A technician sees bulging capacitors on a board. This issue is detected during:","o":["Visual Inspection","Benchmark Testing","Breadboarding","Stress Testing"],"a":0},{"type":"mc","q":"In troubleshooting, removing the motherboard from the case to prevent shorts is called:","o":["Breadboarding","Visual Inspection","POST Testing","Diagnostic Beeping"],"a":0},{"type":"mc","q":"A computer fails to POST. The technician tests the PSU using another known-good unit. What step is this?","o":["Check Power Supply","Reinstall Windows","Update Drivers","Replace the CPU"],"a":0},{"type":"mc","q":"Which RAID level uses mirroring without parity?","o":["RAID 1","RAID 0","RAID 5","RAID 10"],"a":0}]
+  },
+  fds: {
+    id: 'fds',
+    title: 'ITP08 — FDS Identification Drill (Prelims)',
+    subtitle: 'Chapters 4–5 · SQL and Relational Algebra — identification items',
+    navLabel: 'FDS',
+    intro: 'A straight identification drill covering SQL fundamentals, table structure and constraints, SQL data types, basic SQL commands, SQL keywords and operators, relational algebra operators, JOIN types, aliases, and aggregate functions. Type your answer for each item — no multiple choice.',
+    footer: '"Our greatest weakness lies in giving up. The most certain way to succeed is always to try just one more time." — Thomas A. Edison. Good luck, everyone — padayon!',
+    questions: [{"type":"identification","q":"What does SQL stand for?","a":"structured query language","accept":[]},{"type":"identification","q":"In what year did SQL become an ANSI standard?","a":"1986","accept":[]},{"type":"identification","q":"In what year did SQL become an ISO standard?","a":"1987","accept":[]},{"type":"identification","q":"What does each row in a table represent?","a":"record","accept":["a record","a single complete record","records","a complete record or entry"]},{"type":"identification","q":"What does each column in a table represent?","a":"attribute","accept":["field","a specific attribute","an attribute or piece of information","a column represents an attribute"]},{"type":"identification","q":"What term describes what dictates the kind of data a column can store (e.g., INT, VARCHAR, DATE)?","a":"data type","accept":["data types"]},{"type":"identification","q":"What term refers to rules applied to columns or a table to enforce data quality?","a":"constraint","accept":["constraints"]},{"type":"identification","q":"Which constraint is used for unique identification of a record?","a":"primary key","accept":[]},{"type":"identification","q":"Which constraint prevents empty values in a column?","a":"not null","accept":[]},{"type":"identification","q":"Which constraint establishes relationships between tables?","a":"foreign key","accept":[]},{"type":"identification","q":"Which SQL string data type is a FIXED length string with size 0–255?","a":"char","accept":[]},{"type":"identification","q":"Which SQL string data type is a variable-length string?","a":"varchar","accept":[]},{"type":"identification","q":"Which BLOB data type stores a small amount of binary data, max 255 bytes?","a":"tinyblob","accept":[]},{"type":"identification","q":"Which data type holds up to 65,535 bytes of binary data?","a":"blob","accept":[]},{"type":"identification","q":"Which data type stores large amounts of text such as descriptions or articles?","a":"text","accept":[]},{"type":"identification","q":"Which string data type can store 0 or more values chosen from up to 64 possible values?","a":"set","accept":[]},{"type":"identification","q":"Which string data type can store only ONE value chosen from a predefined list?","a":"enum","accept":[]},{"type":"identification","q":"Which numeric data type has a signed range of -128 to 127?","a":"tinyint","accept":[]},{"type":"identification","q":"Which numeric data type has a signed range of -32768 to 32767?","a":"smallint","accept":[]},{"type":"identification","q":"Which numeric data type has a signed range of -8388608 to 8388607?","a":"mediumint","accept":[]},{"type":"identification","q":"Which numeric data type has a signed range of -2147483648 to 2147483647?","a":"int","accept":["integer"]},{"type":"identification","q":"Which numeric data type stores very large integers, signed range up to ~9.2 quintillion?","a":"bigint","accept":[]},{"type":"identification","q":"Which data type stores true/false values, usually as 1 and 0?","a":"bool","accept":["boolean"]},{"type":"identification","q":"Which data type is a floating-point number where size and d specify total digits and decimal digits?","a":"float","accept":[]},{"type":"identification","q":"Which data type is a normal-size floating point number (size, d)?","a":"double","accept":[]},{"type":"identification","q":"Which data type is an exact fixed-point number with max size 65 and max d 30?","a":"decimal","accept":[]},{"type":"identification","q":"Which date/time data type uses the format YYYY-MM-DD?","a":"date","accept":[]},{"type":"identification","q":"Which data type combines date and time, format YYYY-MM-DD hh:mm:ss, range 1000 to 9999?","a":"datetime","accept":[]},{"type":"identification","q":"Which data type is stored as the number of seconds since the Unix epoch, supported until 2038?","a":"timestamp","accept":[]},{"type":"identification","q":"Which data type uses the format hh:mm:ss for storing time only?","a":"time","accept":[]},{"type":"identification","q":"Which data type stores a year in four-digit format (1901–2155, and 0000)?","a":"year","accept":[]},{"type":"identification","q":"What character is the standard statement terminator used to separate SQL statements?","a":"semicolon","accept":[";"]},{"type":"identification","q":"Which SQL command creates a new database?","a":"create database","accept":[]},{"type":"identification","q":"Which SQL command creates a new table?","a":"create table","accept":[]},{"type":"identification","q":"Which SQL command modifies an existing table?","a":"alter table","accept":[]},{"type":"identification","q":"Which SQL command deletes a table?","a":"drop table","accept":[]},{"type":"identification","q":"Which SQL command deletes a database?","a":"drop database","accept":[]},{"type":"identification","q":"Which SQL command creates an index (search key)?","a":"create index","accept":[]},{"type":"identification","q":"Which SQL command inserts new data into a database?","a":"insert into","accept":["insert"]},{"type":"identification","q":"Which SQL command updates existing data in a database?","a":"update","accept":[]},{"type":"identification","q":"Which SQL command extracts/retrieves data from a database?","a":"select","accept":[]},{"type":"identification","q":"Which SQL command deletes data from a database?","a":"delete","accept":[]},{"type":"identification","q":"Which keyword checks if a value is within a set of listed values?","a":"in","accept":[]},{"type":"identification","q":"Which keyword excludes values found in a given list?","a":"not in","accept":[]},{"type":"identification","q":"Which operator(s) mean 'not equal to' in SQL?","a":"!=","accept":["<>","!= or <>"]},{"type":"identification","q":"Which keyword requires both conditions in a WHERE clause to be true?","a":"and","accept":[]},{"type":"identification","q":"Which keyword requires at least one condition to be true?","a":"or","accept":[]},{"type":"identification","q":"Which keyword is used to filter text using wildcard patterns?","a":"like","accept":[]},{"type":"identification","q":"Which wildcard symbol represents any number of characters in a LIKE pattern?","a":"%","accept":[]},{"type":"identification","q":"Which wildcard symbol represents exactly one character in a LIKE pattern?","a":"_","accept":["underscore"]},{"type":"identification","q":"Which keyword checks whether a value is empty/missing?","a":"is null","accept":[]},{"type":"identification","q":"Which keyword checks whether a value falls within a numeric or date range?","a":"between","accept":[]},{"type":"identification","q":"Which keyword checks if a subquery returns any results?","a":"exists","accept":[]},{"type":"identification","q":"Which keyword requires a value to match ALL values returned by a subquery?","a":"all","accept":[]},{"type":"identification","q":"Which keyword removes duplicate rows/values from a result set?","a":"distinct","accept":[]},{"type":"identification","q":"Which keyword is used to rename a column or table in query output?","a":"as","accept":[]},{"type":"identification","q":"Which clause sorts the output of a query (A–Z or Z–A)?","a":"order by","accept":[]},{"type":"identification","q":"Which clause groups rows that share the same values, used for aggregation?","a":"group by","accept":[]},{"type":"identification","q":"Which clause filters results after grouping (used with GROUP BY)?","a":"having","accept":[]},{"type":"identification","q":"Which relational algebra operator yields a horizontal subset of a table and uses the symbol σ?","a":"select","accept":[]},{"type":"identification","q":"Which relational algebra operator yields a vertical subset (selected attributes only) and uses the symbol π?","a":"project","accept":[]},{"type":"identification","q":"Which relational algebra operator combines all rows from two tables, excluding duplicates, symbol ∪?","a":"union","accept":[]},{"type":"identification","q":"Which relational algebra operator subtracts one table's rows from another, symbol −?","a":"difference","accept":[]},{"type":"identification","q":"Which relational algebra operator yields only rows that appear in both tables, symbol ∩?","a":"intersect","accept":[]},{"type":"identification","q":"Which relational algebra operator yields all possible pairs of rows from two tables (Cartesian product), symbol ×?","a":"product","accept":[]},{"type":"identification","q":"Which relational algebra operator combines information from two or more tables using common attributes, symbol ⨝?","a":"join","accept":[]},{"type":"identification","q":"Which type of join automatically matches columns with the same name and values, with no condition needed?","a":"natural join","accept":[]},{"type":"identification","q":"Which join returns all records from the left table and only the matching records from the right table?","a":"left join","accept":[]},{"type":"identification","q":"Which join returns all records from the right table and only the matching records from the left table?","a":"right join","accept":[]},{"type":"identification","q":"Which join returns all rows from both tables, including matching and non-matching rows?","a":"full outer join","accept":["full join"]},{"type":"identification","q":"Which join returns rows only when there is a match between the joined columns of both tables?","a":"inner join","accept":[]},{"type":"identification","q":"What term describes a temporary name given to a table or column to make queries shorter and easier to read?","a":"alias","accept":["aliases"]},{"type":"identification","q":"Which clause, used with ALTER TABLE, is used to rename a table?","a":"rename to","accept":[]},{"type":"identification","q":"Which aggregate function returns the number of rows in a set?","a":"count","accept":[]},{"type":"identification","q":"Which aggregate function calculates the total sum of a numeric column?","a":"sum","accept":[]},{"type":"identification","q":"Which aggregate function computes the average value of a numeric column?","a":"avg","accept":["average"]},{"type":"identification","q":"Which aggregate function returns the smallest value in a specified column?","a":"min","accept":[]},{"type":"identification","q":"Which aggregate function returns the largest value in a specified column?","a":"max","accept":[]}]
+  },
+  edp: {
+    id: 'edp',
+    title: 'EDP — Event-Driven Programming (Identification)',
+    subtitle: 'Events, event handling, forms, validation, and security — 72 identification items',
+    navLabel: 'EDP',
+    intro: 'Type your answer for each item — identification answers just need to match the key term or concept, not the exact wording. Covers event-driven programming basics, mouse/keyboard/window events, event handling methods (inline, DOM property, addEventListener), the event object, event propagation (capturing/bubbling), event delegation, HTML forms and inputs, client-side vs. server-side validation, regular expressions, and web security concepts like XSS and input sanitization.',
+    footer: 'Tip: identification answers just need to match the key term/concept, not the exact wording.',
+    questions: [{"type":"identification","q":"A programming paradigm where the flow of the program is determined by actions like user interactions or system occurrences.","a":"Event-driven programming","accept":["Event-driven programming"]},{"type":"identification","q":"The function called when a matching event occurs.","a":"Event handler","accept":["Event handler"]},{"type":"identification","q":"The mouse event that fires when the user single- or double-clicks an element.","a":"click / dblclick","accept":["click","dblclick"]},{"type":"identification","q":"The mouse event that fires when the pointer enters an element.","a":"mouseover","accept":["mouseover"]},{"type":"identification","q":"The mouse event that fires when the pointer leaves an element.","a":"mouseout","accept":["mouseout"]},{"type":"identification","q":"The low-level mouse events used for drag-and-drop and canvas drawing.","a":"mousedown / mouseup / mousemove","accept":["mousedown","mouseup","mousemove"]},{"type":"identification","q":"The keyboard event that fires continuously while a key is held down.","a":"keydown","accept":["keydown"]},{"type":"identification","q":"The keyboard event that fires when a key is released.","a":"keyup","accept":["keyup"]},{"type":"identification","q":"The deprecated keyboard event once used for character keys only.","a":"keypress","accept":["keypress"]},{"type":"identification","q":"The event that fires when a form is submitted.","a":"submit","accept":["submit"]},{"type":"identification","q":"The event that fires on every keystroke or change to an input's value.","a":"input","accept":["input"]},{"type":"identification","q":"The event that fires when an input loses focus and its value has changed.","a":"change","accept":["change"]},{"type":"identification","q":"The event that fires when an element gains focus.","a":"focus","accept":["focus"]},{"type":"identification","q":"The event that fires when an element loses focus.","a":"blur","accept":["blur"]},{"type":"identification","q":"The event that fires when the HTML document is fully parsed and the DOM is ready.","a":"DOMContentLoaded","accept":["DOMContentLoaded"]},{"type":"identification","q":"The event that fires when the entire page, including images and stylesheets, has fully loaded.","a":"load","accept":["load"]},{"type":"identification","q":"The event that fires whenever the browser window is resized.","a":"resize","accept":["resize"]},{"type":"identification","q":"The event that fires continuously as the user scrolls the page.","a":"scroll","accept":["scroll"]},{"type":"identification","q":"The earliest approach to event handling, written directly inside HTML tags (e.g. onclick).","a":"Inline event handlers","accept":["Inline event handlers"]},{"type":"identification","q":"The approach that assigns a handler directly to an element's property, e.g. btn.onclick = fn.","a":"DOM property handler","accept":["DOM property handler"]},{"type":"identification","q":"The modern, recommended method for attaching event handlers that allows multiple listeners.","a":"addEventListener()","accept":["addEventListener()"]},{"type":"identification","q":"The third argument of addEventListener that decides capture vs. bubble phase.","a":"useCapture","accept":["useCapture"]},{"type":"identification","q":"The object automatically created and passed to a handler function when an event fires.","a":"Event object","accept":["Event object"]},{"type":"identification","q":"The event object property identifying the element that originally triggered the event.","a":"event.target","accept":["event.target"]},{"type":"identification","q":"The event object property identifying the element the listener was attached to.","a":"event.currentTarget","accept":["event.currentTarget"]},{"type":"identification","q":"The event object property showing what character the user typed.","a":"event.key","accept":["event.key"]},{"type":"identification","q":"The event object property showing which physical key was pressed.","a":"event.code","accept":["event.code"]},{"type":"identification","q":"The three-phase journey an event travels through the DOM.","a":"Event propagation","accept":["Event propagation"]},{"type":"identification","q":"The phase where an event travels from the outer ancestor down to the target element.","a":"Capturing","accept":["Capturing"]},{"type":"identification","q":"The phase where an event travels from the target back up through its ancestors.","a":"Bubbling","accept":["Bubbling"]},{"type":"identification","q":"The method that stops an event from bubbling further up the DOM tree.","a":"stopPropagation()","accept":["stopPropagation()"]},{"type":"identification","q":"The method that stops bubbling and also blocks other listeners on the same element.","a":"stopImmediatePropagation()","accept":["stopImmediatePropagation()"]},{"type":"identification","q":"The method used to override an element's default behavior, like link navigation.","a":"preventDefault()","accept":["preventDefault()"]},{"type":"identification","q":"The pattern of attaching one listener to a parent element to handle events from its children.","a":"Event delegation","accept":["Event delegation"]},{"type":"identification","q":"The method used to detach an event listener from an element.","a":"removeEventListener()","accept":["removeEventListener()"]},{"type":"identification","q":"The addEventListener option object property that removes a listener automatically after it fires once.","a":"{ once: true }","accept":["{ once: true }"]},{"type":"identification","q":"The HTML element that wraps interactive controls for collecting user input.","a":"<form> element","accept":["<form> element"]},{"type":"identification","q":"The form attribute that specifies where the submitted data is sent.","a":"action","accept":["action"]},{"type":"identification","q":"The form attribute that defines how data is sent (GET or POST).","a":"method","accept":["method"]},{"type":"identification","q":"The HTML element linked to an input via the 'for' attribute for accessibility.","a":"<label>","accept":["<label>"]},{"type":"identification","q":"The input type that masks characters as the user types.","a":"password","accept":["password"]},{"type":"identification","q":"The input type that accepts numeric values with optional min/max.","a":"number","accept":["number"]},{"type":"identification","q":"The input types used for boolean toggles or mutually exclusive choices.","a":"checkbox / radio","accept":["checkbox","radio"]},{"type":"identification","q":"The form control that lets users choose from a predefined dropdown list.","a":"<select> element","accept":["<select> element"]},{"type":"identification","q":"The input type that is not visible to users but is still included in form submission.","a":"hidden input","accept":["hidden input"]},{"type":"identification","q":"The property used to read the current content of an input field.","a":".value","accept":[".value"]},{"type":"identification","q":"The string method used to remove leading and trailing whitespace.","a":".trim()","accept":[".trim()"]},{"type":"identification","q":"The event that fires when a user clicks the submit button or presses Enter in a form.","a":"submit","accept":["submit"]},{"type":"identification","q":"The process of checking user input in the browser before it is sent to the server.","a":"Client-side validation","accept":["Client-side validation"]},{"type":"identification","q":"The HTML5 attribute requiring a field to not be empty on submission.","a":"required","accept":["required"]},{"type":"identification","q":"The attributes that set the minimum and maximum character count for a field.","a":"minlength / maxlength","accept":["minlength","maxlength"]},{"type":"identification","q":"The attribute that enforces a regex pattern match on an input's value.","a":"pattern","accept":["pattern"]},{"type":"identification","q":"The attribute that prevents editing a field but still submits its value.","a":"readonly","accept":["readonly"]},{"type":"identification","q":"The attribute that prevents interaction with a field and excludes its value from submission.","a":"disabled","accept":["disabled"]},{"type":"identification","q":"A sequence of characters that defines a search pattern, used to enforce complex validation rules.","a":"Regular expression (regex)","accept":["Regular expression","regex","Regular expression (regex)"]},{"type":"identification","q":"The regex method used to test a string and return true or false.","a":"test()","accept":["test()"]},{"type":"identification","q":"The type of validation that gives users immediate feedback as they type.","a":"Real-time validation","accept":["Real-time validation"]},{"type":"identification","q":"The process of cleaning user-supplied data to remove potentially harmful content.","a":"Input sanitization","accept":["Input sanitization"]},{"type":"identification","q":"The type of attack caused by injecting malicious HTML or JavaScript into a page.","a":"Cross-Site Scripting (XSS)","accept":["Cross-Site Scripting","XSS","Cross-Site Scripting (XSS)"]},{"type":"identification","q":"The safe DOM property to use instead of innerHTML when displaying user-supplied text.","a":"textContent","accept":["textContent"]},{"type":"identification","q":"The attributes (aria-required, aria-invalid, aria-describedby) that communicate form state to assistive technologies.","a":"ARIA attributes","accept":["ARIA attributes"]},{"type":"identification","q":"The key commonly used to move between form controls via keyboard.","a":"Tab","accept":["Tab"]},{"type":"identification","q":"The validation layer that is mandatory for protecting application data, unlike the client layer.","a":"Server-side validation","accept":["Server-side validation"]},{"type":"identification","q":"Three things a determined user can do to bypass client-side validation.","a":"Disable JavaScript, edit HTML via DevTools, or send raw HTTP requests directly","accept":["Disable JavaScript, edit HTML via DevTools, or send raw HTTP requests directly"]},{"type":"identification","q":"Only this layer can verify whether a username or email is already taken in the database.","a":"The server","accept":["The server"]},{"type":"identification","q":"This process must always happen server-side and never in browser JavaScript.","a":"Authenticating users (verifying login credentials)","accept":["Authenticating users","verifying login credentials","Authenticating users (verifying login credentials)"]},{"type":"identification","q":"The type of attack where network interception alters form data after it leaves the browser.","a":"Man-in-the-middle attack","accept":["Man-in-the-middle attack"]},{"type":"identification","q":"The keyboard events useful for preventing certain characters or triggering search-as-you-type.","a":"keydown / keyup","accept":["keydown","keyup"]},{"type":"identification","q":"What kind of layer is client-side validation — a security barrier, or this?","a":"A convenience layer / defense-in-depth measure","accept":["A convenience layer","defense-in-depth measure"]},{"type":"identification","q":"The chart/table type used to organize HTML5 validation attributes by purpose.","a":"Required Fields and Input Restrictions table","accept":["Required Fields and Input Restrictions table"]},{"type":"identification","q":"The event category covering submit, change, input, focus, and blur.","a":"Form events","accept":["Form events"]},{"type":"identification","q":"The event category covering load, DOMContentLoaded, resize, and scroll.","a":"Window/Document events","accept":["Window","Document events"]}]
+  }
+};
+
+let activeSubject = 'siaa';
+const state = {};
+Object.keys(SUBJECTS).forEach(id => {
+  state[id] = { screen: 'start', current: 0, answers: new Array(SUBJECTS[id].questions.length).fill(null), draft: { choice: null }, shuffled: false };
+});
+
+function renderSidebar(){
+  const sb = document.getElementById('sidebar');
+  sb.innerHTML = '<h2>Subjects</h2>';
+  Object.values(SUBJECTS).forEach(subj => {
+    const st = state[subj.id];
+    const answeredCount = st.answers.filter(a => a !== null).length;
+    const btn = document.createElement('button');
+    btn.className = 'subject-btn' + (subj.id === activeSubject ? ' active' : '');
+    btn.textContent = subj.navLabel;
+    btn.onclick = () => { activeSubject = subj.id; renderSidebar(); renderApp(); };
+    sb.appendChild(btn);
+    const prog = document.createElement('div');
+    prog.className = 'subject-progress';
+    prog.textContent = st.screen === 'result' ? 'Completed' : (answeredCount > 0 ? answeredCount + ' / ' + subj.questions.length + ' answered' : subj.questions.length + ' questions');
+    sb.appendChild(prog);
+  });
+}
+
+function renderApp(){
+  const subj = SUBJECTS[activeSubject];
+  const st = state[activeSubject];
+  const app = document.getElementById('app');
+  if(st.screen === 'start'){
+    app.innerHTML = `
+      <header class="top">
+        <h1>${subj.title}</h1>
+        <p class="sub">${subj.subtitle}</p>
+      </header>
+      <div class="meta">
+        <span>${subj.questions.length} questions</span>
+        <span>Multiple choice</span>
+        <span>Score shown at the end</span>
+      </div>
+      <p>${subj.intro}</p>
+      <div class="start-actions">
+        <button class="go" onclick="startQuiz()">Start quiz</button>
+        <button class="go outline" onclick="shuffleFromStart('${subj.id}')">🔀 Shuffle questions</button>
+      </div>
+      ${st.shuffled ? '<p class="shuffled-tag">Questions shuffled ✓</p>' : ''}
+      <footer>${subj.footer}</footer>
+    `;
+  } else if(st.screen === 'quiz'){
+    renderQuestion();
+  } else if(st.screen === 'result'){
+    renderResults();
+  }
+}
+
+function shuffleArray(arr){
+  for(let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function shuffleFromStart(id){
+  const subj = SUBJECTS[id];
+  shuffleArray(subj.questions);
+  state[id].shuffled = true;
+  renderApp();
+}
+
+function shuffleAndRetake(){
+  const subj = SUBJECTS[activeSubject];
+  shuffleArray(subj.questions);
+  restart();
+  state[activeSubject].shuffled = true;
+  renderApp();
+}
+
+function startQuiz(){
+  state[activeSubject].screen = 'quiz';
+  state[activeSubject].current = 0;
+  state[activeSubject].draft = { choice: null };
+  renderSidebar();
+  renderApp();
+}
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function normText(s){
+  return String(s ?? '').trim().toLowerCase().replace(/[().;]/g,'').replace(/\s+/g,' ');
+}
+
+function isCorrect(qd, ans){
+  if(ans === null || ans === undefined) return false;
+  if(qd.type === 'identification'){
+    const normAns = normText(ans);
+    if(!normAns) return false;
+    const accepted = [qd.a, ...(qd.accept||[])].map(normText).filter(Boolean);
+    return accepted.some(a => a === normAns || (a.length > 3 && (normAns.includes(a) || a.includes(normAns))));
+  }
+  if(qd.type === 'debugging'){
+    return ans && ans.choice === qd.a;
+  }
+  return ans === qd.a;
+}
+
+function scoreOf(subj, st){
+  return st.answers.reduce((s,v,i)=> s + (isCorrect(subj.questions[i], v)?1:0), 0);
+}
+
+function sectionLabel(subj, idx){
+  if(!subj.sections) return null;
+  for(const sec of subj.sections){
+    if(idx >= sec.start && idx < sec.end) return sec.label;
+  }
+  return null;
+}
+
+function renderQuestion(){
+  const subj = SUBJECTS[activeSubject];
+  const st = state[activeSubject];
+  const qd = subj.questions[st.current];
+  const chosen = st.answers[st.current];
+  const answered = chosen !== null && chosen !== undefined;
+  const app = document.getElementById('app');
+
+  const scored = scoreOf(subj, st);
+  const secLabel = sectionLabel(subj, st.current);
+
+  let bodyHtml = '';
+  if(qd.type === 'identification'){
+    const correct = answered ? isCorrect(qd, chosen) : null;
+    bodyHtml = `
+      <input type="text" id="idInput" ${answered?'disabled':''}
+        value="${answered ? escapeHtml(chosen).replace(/"/g,'&quot;') : ''}"
+        placeholder="Type your answer..."
+        style="width:100%;padding:.6rem .7rem;font-family:inherit;font-size:1rem;border-radius:4px;border:1px solid var(--line);background:var(--card);color:var(--ink);margin-bottom:.6rem;"
+        onkeydown="if(event.key==='Enter'){checkIdentification();}">
+      ${!answered ? '<button class="nav primary" onclick="checkIdentification()">Check answer</button>' : `
+        <p style="margin:.4rem 0;">${correct ? '<span class="tag-correct">Correct.</span>' : '<span class="tag-wrong">Not quite.</span>'}</p>
+        ${!correct ? '<p style="margin:.3rem 0;">Correct answer: <span class="tag-correct">'+escapeHtml(qd.a)+'</span></p>' : ''}
+      `}
+    `;
+  } else if(qd.type === 'debugging'){
+    if(answered){
+      const correct = isCorrect(qd, chosen);
+      let optsHtml = '';
+      qd.o.forEach((text, i) => {
+        let cls = 'opt locked';
+        if(i === qd.a) cls += ' correct';
+        else if(i === chosen.choice && chosen.choice !== qd.a) cls += ' incorrect';
+        optsHtml += `<label class="${cls}"><input type="radio" disabled ${chosen.choice===i?'checked':''}> <span>${text}</span></label>`;
+      });
+      bodyHtml = `
+        <pre style="white-space:pre-wrap;background:var(--accent-soft);border-radius:4px;padding:.8rem;font-family:monospace;font-size:.9rem;margin-bottom:1rem;">${qd.q.replace(/</g,'&lt;')}</pre>
+        ${optsHtml}
+        ${chosen.choice === 0 ? `<div style="margin-top:.8rem;"><div class="qnum">YOUR REWRITE</div><pre style="white-space:pre-wrap;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:.7rem;font-family:monospace;font-size:.9rem;">${(chosen.rewrite||'').replace(/</g,'&lt;')}</pre></div>` : ''}
+        <p style="margin-top:.6rem;">${correct ? '<span class="tag-correct">Correct.</span>' : '<span class="tag-wrong">Not quite — correct answer: '+qd.o[qd.a]+'</span>'}</p>
+      `;
+    } else {
+      const draft = st.draft;
+      let optsHtml = '';
+      qd.o.forEach((text, i) => {
+        const cls = 'opt' + (draft.choice === i ? ' selected-draft' : '');
+        optsHtml += `<label class="${cls}" onclick="selectDebugChoice(${i})"><input type="radio" name="dbg" ${draft.choice===i?'checked':''}> <span>${text}</span></label>`;
+      });
+      bodyHtml = `
+        <pre style="white-space:pre-wrap;background:var(--accent-soft);border-radius:4px;padding:.8rem;font-family:monospace;font-size:.9rem;margin-bottom:1rem;">${qd.q.replace(/</g,'&lt;')}</pre>
+        ${optsHtml}
+        ${draft.choice === 0 ? `
+          <div style="margin-top:.9rem;">
+            <div class="qnum">REWRITE THE QUERY SO IT'S CORRECT</div>
+            <textarea id="rewriteInput" rows="3" placeholder="Type your corrected query here..."
+              style="width:100%;padding:.6rem .7rem;font-family:monospace;font-size:.9rem;border-radius:4px;border:1px solid var(--line);background:var(--card);color:var(--ink);margin:.4rem 0;"></textarea>
+            <button class="nav primary" onclick="submitDebugAnswer()">Submit answer</button>
+          </div>
+        ` : (draft.choice === 1 ? '<button class="nav primary" style="margin-top:.8rem;" onclick="submitDebugAnswer()">Submit answer</button>' : '')}
+      `;
+    }
+  } else {
+    let optsHtml = '';
+    qd.o.forEach((text, i) => {
+      let cls = 'opt' + (answered ? ' locked' : '');
+      if(answered){
+        if(i === qd.a) cls += ' correct';
+        else if(i === chosen && chosen !== qd.a) cls += ' incorrect';
+      }
+      optsHtml += `<label class="${cls}" ${!answered ? 'onclick="selectAnswer('+i+')"' : ''}>
+        <input type="radio" name="opt" ${chosen===i?'checked':''} ${answered?'disabled':''}> <span>${escapeHtml(text)}</span>
+      </label>`;
+    });
+    bodyHtml = optsHtml;
+  }
+
+  app.innerHTML = `
+    <div class="progress-row">
+      <span>Question ${st.current+1} of ${subj.questions.length}${secLabel ? ' — ' + secLabel : ''}</span>
+      <span>Score: ${scored}</span>
+    </div>
+    <div class="barwrap"><div class="bar" style="width:${(st.current/subj.questions.length*100)}%"></div></div>
+    <div class="card">
+      <div class="qnum">${secLabel ? secLabel.toUpperCase() + ' — ' : ''}QUESTION ${st.current+1} OF ${subj.questions.length}</div>
+      ${qd.type === 'debugging' ? '' : '<p class="qtext">'+escapeHtml(qd.q)+'</p>'}
+      ${bodyHtml}
+    </div>
+    <div class="navrow">
+      <button class="nav" ${st.current===0?'disabled':''} onclick="go(-1)">Back</button>
+      <button class="nav primary" ${!answered?'disabled':''} onclick="go(1)">${st.current===subj.questions.length-1?'Finish':'Next'}</button>
+    </div>
+  `;
+}
+
+function selectAnswer(i){
+  const st = state[activeSubject];
+  st.answers[st.current] = i;
+  renderQuestion();
+  renderSidebar();
+}
+
+function selectDebugChoice(i){
+  const st = state[activeSubject];
+  st.draft = { choice: i };
+  renderQuestion();
+}
+
+function submitDebugAnswer(){
+  const st = state[activeSubject];
+  const choice = st.draft.choice;
+  if(choice === null || choice === undefined) return;
+  if(choice === 0){
+    const el = document.getElementById('rewriteInput');
+    const rewrite = el ? el.value.trim() : '';
+    if(!rewrite) return;
+    st.answers[st.current] = { choice: 0, rewrite };
+  } else {
+    st.answers[st.current] = { choice: 1, rewrite: null };
+  }
+  st.draft = { choice: null };
+  renderQuestion();
+  renderSidebar();
+}
+
+function checkIdentification(){
+  const st = state[activeSubject];
+  const input = document.getElementById('idInput');
+  const val = input ? input.value.trim() : '';
+  if(!val) return;
+  st.answers[st.current] = val;
+  renderQuestion();
+  renderSidebar();
+}
+
+function go(dir){
+  const subj = SUBJECTS[activeSubject];
+  const st = state[activeSubject];
+  const ans = st.answers[st.current];
+  if(dir === 1 && (ans === null || ans === undefined)) return;
+  if(st.current === subj.questions.length-1 && dir === 1){
+    st.screen = 'result';
+    renderSidebar();
+    renderApp();
+    return;
+  }
+  st.current += dir;
+  st.draft = { choice: null };
+  renderQuestion();
+}
+
+function renderResults(){
+  const subj = SUBJECTS[activeSubject];
+  const st = state[activeSubject];
+  const app = document.getElementById('app');
+  const score = scoreOf(subj, st);
+
+  let reviewHtml = '<h3 style="margin-bottom:1rem;">Review</h3>';
+  subj.questions.forEach((qd,i)=>{
+    const ans = st.answers[i];
+    const correct = isCorrect(qd, ans);
+    let yourAnswerText, correctAnswerText, qtextHtml, extraHtml = '';
+    if(qd.type === 'identification'){
+      yourAnswerText = escapeHtml(ans ?? '(skipped)');
+      correctAnswerText = escapeHtml(qd.a);
+      qtextHtml = '<p class="qtext">'+escapeHtml(qd.q)+'</p>';
+    } else if(qd.type === 'debugging'){
+      yourAnswerText = escapeHtml(ans ? qd.o[ans.choice] : '(skipped)');
+      correctAnswerText = escapeHtml(qd.o[qd.a]);
+      qtextHtml = '<pre style="white-space:pre-wrap;background:var(--accent-soft);border-radius:4px;padding:.7rem;font-family:monospace;font-size:.88rem;margin-bottom:.6rem;">'+escapeHtml(qd.q)+'</pre>';
+      if(ans && ans.choice === 0 && ans.rewrite){
+        extraHtml = '<div class="qnum" style="margin-top:.4rem;">YOUR REWRITE</div><pre style="white-space:pre-wrap;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:.6rem;font-family:monospace;font-size:.85rem;">'+escapeHtml(ans.rewrite)+'</pre>';
+      }
+    } else {
+      yourAnswerText = escapeHtml((qd.o && ans !== null && ans !== undefined) ? qd.o[ans] : '(skipped)');
+      correctAnswerText = escapeHtml(qd.o[qd.a]);
+      qtextHtml = '<p class="qtext">'+escapeHtml(qd.q)+'</p>';
+    }
+    const secLabel = sectionLabel(subj, i);
+    reviewHtml += `
+      <div class="card review-item">
+        <div class="qnum">${secLabel ? secLabel.toUpperCase() + ' — ' : ''}QUESTION ${i+1}</div>
+        ${qtextHtml}
+        <p style="margin:.3rem 0;">Your answer: <span class="${correct?'tag-correct':'tag-wrong'}">${yourAnswerText}</span></p>
+        ${!correct ? '<p style="margin:.3rem 0;">Correct answer: <span class="tag-correct">'+correctAnswerText+'</span></p>' : ''}
+        ${extraHtml}
+        ${qd.exp ? '<p style="margin:.3rem 0;color:var(--muted);font-size:.9rem;">'+escapeHtml(qd.exp)+'</p>' : ''}
+      </div>
+    `;
+  });
+
+  app.innerHTML = `
+    <div style="text-align:center;">
+      <p class="score-label">You scored</p>
+      <p class="score-big">${score} / ${subj.questions.length}</p>
+      <p class="score-label">${Math.round(score/subj.questions.length*100)}% correct</p>
+      <div class="result-actions">
+        <button class="restart" onclick="restart()">Retake quiz</button>
+        <button class="restart outline" onclick="shuffleAndRetake()">🔀 Shuffle &amp; retake</button>
+      </div>
+    </div>
+    <div style="margin-top:2rem;text-align:left;">${reviewHtml}</div>
+  `;
+}
+
+function restart(){
+  const subj = SUBJECTS[activeSubject];
+  state[activeSubject] = { screen: 'start', current: 0, answers: new Array(subj.questions.length).fill(null), draft: { choice: null }, shuffled: false };
+  renderSidebar();
+  renderApp();
+}
+
+renderSidebar();
+renderApp();
+</script>
+</body>
+</html>
